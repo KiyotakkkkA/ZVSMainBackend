@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { ConfigService } from 'src/config/config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { UserLoginDto } from 'src/dto/auth/user-login.dto';
@@ -77,10 +77,11 @@ export class AuthService {
 
   async logout(refreshToken: string, authorizationHeader?: string) {
     const payload = this.getAccessPayload(authorizationHeader);
+    const refreshTokenHash = this.hashToken(refreshToken);
 
     const session = await this.databaseService.refreshToken.findFirst({
       where: {
-        token: refreshToken,
+        token: refreshTokenHash,
         userId: payload.sub,
         revoked: false,
       },
@@ -109,6 +110,7 @@ export class AuthService {
     );
 
     const refreshToken = randomUUID();
+    const refreshTokenHash = this.hashToken(refreshToken);
     const refreshTokenTtlDays = this.configService.getJwtRefreshTtlDays();
     const refreshExpiresAt = new Date(
       Date.now() + refreshTokenTtlDays * 24 * 60 * 60 * 1000,
@@ -116,7 +118,7 @@ export class AuthService {
 
     await this.databaseService.refreshToken.create({
       data: {
-        token: refreshToken,
+        token: refreshTokenHash,
         userId,
         expiresAt: refreshExpiresAt,
         ipAddress: ctx.ip,
@@ -147,5 +149,9 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Invalid or expired access token');
     }
+  }
+
+  private hashToken(value: string): string {
+    return createHash('sha256').update(value).digest('hex');
   }
 }

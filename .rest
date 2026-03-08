@@ -1,0 +1,58 @@
+### Auth Routes Documentation
+# Base URL uses global prefix from main.ts: /api
+@baseUrl = http://localhost:8080/api
+@accessToken = REPLACE_WITH_ACCESS_TOKEN
+@refreshToken = REPLACE_WITH_REFRESH_TOKEN
+
+### Auth: Register
+# POST {{baseUrl}}/auth/register
+# Description: Registration of a new user and issuing access/refresh tokens.
+# Body:
+# - email: string (valid email)
+# - password: string (recommended min 6 chars)
+# - passwordConfirm: string (must match password)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+	"email": "user@example.com",
+	"password": "StrongPass123",
+	"passwordConfirm": "StrongPass123"
+}
+
+### Auth: Login
+# POST {{baseUrl}}/auth/login
+# Description: JWT authorization and issuing a new access/refresh token pair.
+# Body:
+# - email: string
+# - password: string
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+	"email": "user@example.com",
+	"password": "StrongPass123"
+}
+
+### Auth: Me
+# GET {{baseUrl}}/auth/me
+# Description: Returns current authenticated user info.
+# Header:
+# - Authorization: Bearer <accessToken>
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{accessToken}}
+
+### Auth: Logout
+# POST {{baseUrl}}/auth/logout
+# Description: Revokes current refresh token (logout current session).
+# Header:
+# - Authorization: Bearer <accessToken>
+# Body:
+# - refreshToken: string
+POST {{baseUrl}}/auth/logout
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+	"refreshToken": "{{refreshToken}}"
+}
