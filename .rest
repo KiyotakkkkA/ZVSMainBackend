@@ -1,8 +1,9 @@
 ### Auth Routes Documentation
 # Base URL uses global prefix from main.ts: /api
 @baseUrl = http://localhost:8080/api
-@accessToken = REPLACE_WITH_ACCESS_TOKEN
+@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsImlhdCI6MTc3MzAxMTM4NiwiZXhwIjoxNzczMDE0OTg2fQ.JKULl3SpYqNkIiyRGItLcJhMJN5FqtCQd4xwG4DJWX8
 @refreshToken = REPLACE_WITH_REFRESH_TOKEN
+@sessionId = 1
 
 ### Auth: Register
 # POST {{baseUrl}}/auth/register
@@ -56,3 +57,31 @@ Authorization: Bearer {{accessToken}}
 {
 	"refreshToken": "{{refreshToken}}"
 }
+
+### Auth: Refresh
+# POST {{baseUrl}}/auth/refresh
+# Description: Refresh access token using refresh token.
+# Body:
+# - refreshToken: string
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+	"refreshToken": "{{refreshToken}}"
+}
+
+### Auth: Sessions
+# GET {{baseUrl}}/auth/sessions
+# Description: Returns all active sessions for current user.
+# Header:
+# - Authorization: Bearer <accessToken>
+GET {{baseUrl}}/auth/sessions
+Authorization: Bearer {{accessToken}}
+
+### Auth: Revoke Session
+# DELETE {{baseUrl}}/auth/sessions/:id
+# Description: Revoke a specific user session by session id.
+# Header:
+# - Authorization: Bearer <accessToken>
+DELETE {{baseUrl}}/auth/sessions/{{sessionId}}
+Authorization: Bearer {{accessToken}}
