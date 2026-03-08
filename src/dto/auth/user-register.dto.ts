@@ -1,11 +1,15 @@
-export class UserRegisterDto {
-  public email: string;
-  public password: string;
-  public passwordConfirm: string;
+import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
-  constructor(email: string, password: string, passwordConfirm: string) {
-    this.email = email;
-    this.password = password;
-    this.passwordConfirm = passwordConfirm;
-  }
+export class UserRegisterDto {
+  @IsEmail()
+  @IsNotEmpty()
+  public email: string;
+
+  @IsString()
+  @MinLength(6)
+  public password: string;
+
+  @IsString()
+  @MinLength(6)
+  public passwordConfirm: string;
 }

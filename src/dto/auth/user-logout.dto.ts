@@ -1,7 +1,8 @@
-export class UserLogoutDto {
-  public refreshToken: string;
+import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
-  constructor(refreshToken: string) {
-    this.refreshToken = refreshToken;
-  }
+export class UserLogoutDto {
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(10)
+  public refreshToken: string;
 }

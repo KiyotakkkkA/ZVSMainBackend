@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Headers, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Post,
+  Req,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { UserLoginDto } from 'src/dto/auth/user-login.dto';
 import { UserLogoutDto } from 'src/dto/auth/user-logout.dto';
@@ -6,6 +15,13 @@ import { UserRegisterDto } from 'src/dto/auth/user-register.dto';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
+@UsePipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }),
+)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -34,13 +50,8 @@ export class AuthController {
   async logout(
     @Body() body: UserLogoutDto,
     @Headers('authorization') authorization?: string,
-    @Req() request?: Request,
   ) {
-    return this.authService.logout(
-      body.refreshToken,
-      authorization,
-      request ? this.getClientContext(request) : undefined,
-    );
+    return this.authService.logout(body.refreshToken, authorization);
   }
 
   private getClientContext(request: Request) {

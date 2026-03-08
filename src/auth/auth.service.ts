@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Injectable,
-  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -21,8 +20,6 @@ type AuthClientContext = {
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly usersService: UsersService,
     private readonly databaseService: DatabaseService,
@@ -43,10 +40,6 @@ export class AuthService {
     const passwordHash = await hash(data.password, 10);
     const user = await this.usersService.createUser(data, passwordHash);
 
-    this.logger.log(
-      `register userId=${user.id} email=${user.email} ip=${ctx.ip} device=${ctx.device}`,
-    );
-
     return this.createSession(user.id, user.email, ctx);
   }
 
@@ -60,10 +53,6 @@ export class AuthService {
     if (!passwordValid) {
       throw new UnauthorizedException('Invalid email or password');
     }
-
-    this.logger.log(
-      `login userId=${user.id} email=${user.email} ip=${ctx.ip} device=${ctx.device}`,
-    );
 
     return this.createSession(user.id, user.email, ctx);
   }
@@ -86,11 +75,7 @@ export class AuthService {
     };
   }
 
-  async logout(
-    refreshToken: string,
-    authorizationHeader?: string,
-    ctx?: AuthClientContext,
-  ) {
+  async logout(refreshToken: string, authorizationHeader?: string) {
     const payload = this.getAccessPayload(authorizationHeader);
 
     const session = await this.databaseService.refreshToken.findFirst({
@@ -109,12 +94,6 @@ export class AuthService {
       where: { id: session.id },
       data: { revoked: true },
     });
-
-    if (ctx) {
-      this.logger.log(
-        `logout userId=${payload.sub} ip=${ctx.ip} device=${ctx.device}`,
-      );
-    }
 
     return { success: true };
   }
