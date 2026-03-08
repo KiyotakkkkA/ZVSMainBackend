@@ -5,7 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -43,9 +43,13 @@ model RefreshToken {
   token       String  @unique
   userId      Int
   user        User    @relation(fields: [userId], references: [id])
-  
-  expiresAt   DateTime
+
+  ipAddress   String?
+  userAgent   String?
+  device      String?
+
   revoked     Boolean @default(false)
+  expiresAt   DateTime
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
