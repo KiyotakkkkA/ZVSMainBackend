@@ -9,12 +9,14 @@ import type { Request } from 'express';
 import { ConfigService } from 'src/config/config.service';
 import { DatabaseService } from 'src/database/database.service';
 
-export type AuthenticatedUser = {
+type JwtPayload = {
   sub: number;
   email: string;
   sid?: number;
   ver?: number;
 };
+
+export type AuthenticatedUser = Required<JwtPayload>;
 
 export type AuthenticatedRequest = Request & {
   user: AuthenticatedUser;
@@ -39,7 +41,7 @@ export class AuthGuard implements CanActivate {
     const accessToken = authorizationHeader.replace('Bearer ', '').trim();
 
     try {
-      const payload = this.jwtService.verify<AuthenticatedUser>(accessToken, {
+      const payload = this.jwtService.verify<JwtPayload>(accessToken, {
         secret: this.configService.getJwtSecret(),
       });
 
@@ -68,7 +70,12 @@ export class AuthGuard implements CanActivate {
         throw new UnauthorizedException('Access token is no longer active');
       }
 
-      request.user = payload;
+      request.user = {
+        sub: payload.sub,
+        email: payload.email,
+        sid: payload.sid,
+        ver: payload.ver,
+      };
 
       return true;
     } catch {

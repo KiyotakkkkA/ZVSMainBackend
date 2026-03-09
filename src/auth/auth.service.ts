@@ -180,7 +180,7 @@ export class AuthService {
       { expiresIn: this.configService.getJwtAccessExpiresInSeconds() },
     );
 
-    const session = {
+    return {
       accessToken,
       refreshToken: nextRefreshToken,
       user: {
@@ -191,16 +191,6 @@ export class AuthService {
         createdAt: tokenRecord.user.createdAt,
         updatedAt: tokenRecord.user.updatedAt,
       },
-    };
-
-    const userStore = {
-      user: session.user,
-    };
-
-    return {
-      accessToken: session.accessToken,
-      refreshToken: session.refreshToken ?? refreshToken,
-      user: session.user ?? userStore.user,
       tokenType: 'Bearer',
       expiresIn: this.configService.getJwtAccessExpiresInSeconds(),
     };
@@ -262,7 +252,7 @@ export class AuthService {
     });
 
     return {
-      currentSession: userPayload.sid ?? null,
+      currentSession: userPayload.sid,
       sessions: sessions.map((session) => {
         const sessionUserAgent: string | null = session.userAgent ?? null;
         const parsed = this.parseSessionMeta(sessionUserAgent);

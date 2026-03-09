@@ -97,7 +97,11 @@ export class AuthController {
     const explicitDeviceId = request.get('x-device-id')?.trim();
 
     return {
-      ip: request.ip ?? request.socket.remoteAddress ?? 'unknown',
+      ip:
+        request.ip ??
+        request.get('x-real-ip')?.trim() ??
+        request.socket.remoteAddress ??
+        'unknown',
       userAgent,
       browser,
       os,
