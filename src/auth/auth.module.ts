@@ -24,6 +24,7 @@ import { JwksController } from './jwks.controller';
         signOptions: {
           algorithm: 'RS256',
           expiresIn: configService.getJwtAccessExpiresInSeconds(),
+          keyid: configService.getJwtKid(),
         },
         verifyOptions: {
           algorithms: ['RS256'],

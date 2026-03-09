@@ -68,7 +68,7 @@ export class AuthService {
   }
 
   async me(userPayload: AuthenticatedUser) {
-    const user = await this.usersService.findById(userPayload.sub);
+    const user = await this.usersService.findById(Number(userPayload.sub));
 
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -90,7 +90,7 @@ export class AuthService {
     const session = await this.databaseService.refreshToken.findFirst({
       where: {
         token: refreshTokenHash,
-        userId: userPayload.sub,
+        userId: Number(userPayload.sub),
         revoked: false,
       },
     });
@@ -218,7 +218,7 @@ export class AuthService {
 
     await this.databaseService.refreshToken.updateMany({
       where: {
-        userId: userPayload.sub,
+        userId: Number(userPayload.sub),
         revoked: false,
         expiresAt: {
           lte: now,
@@ -231,7 +231,7 @@ export class AuthService {
 
     const sessions = await this.databaseService.refreshToken.findMany({
       where: {
-        userId: userPayload.sub,
+        userId: Number(userPayload.sub),
         revoked: false,
         expiresAt: {
           gt: now,
@@ -277,7 +277,7 @@ export class AuthService {
     const session = await this.databaseService.refreshToken.findFirst({
       where: {
         id: sessionId,
-        userId: userPayload.sub,
+        userId: Number(userPayload.sub),
       },
     });
 
@@ -329,7 +329,7 @@ export class AuthService {
 
     const accessToken = await this.jwtService.signAsync(
       {
-        sub: userId,
+        sub: String(userId),
         email,
         sid: tokenRecord.id,
         ver: tokenRecord.updatedAt.getTime(),

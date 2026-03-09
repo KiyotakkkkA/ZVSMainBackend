@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -6,11 +7,16 @@ import { join } from 'path';
 export class ConfigService {
   private readonly jwtPrivateKey: string;
   private readonly jwtPublicKey: string;
+  private readonly jwtKid: string;
 
   constructor() {
     const keysDir = join(process.cwd(), 'keys');
     this.jwtPrivateKey = readFileSync(join(keysDir, 'private.pem'), 'utf-8');
     this.jwtPublicKey = readFileSync(join(keysDir, 'public.pem'), 'utf-8');
+    this.jwtKid = createHash('sha256')
+      .update(this.jwtPublicKey)
+      .digest('base64url')
+      .slice(0, 16);
   }
 
   getJwtPrivateKey(): string {
@@ -19,6 +25,10 @@ export class ConfigService {
 
   getJwtPublicKey(): string {
     return this.jwtPublicKey;
+  }
+
+  getJwtKid(): string {
+    return this.jwtKid;
   }
 
   getJwtAccessExpiresInSeconds(): number {

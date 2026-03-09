@@ -5,14 +5,14 @@ import { ConfigService } from 'src/config/config.service';
 import { DatabaseService } from 'src/database/database.service';
 
 type JwtPayload = {
-  sub: number;
+  sub: string;
   email: string;
   sid?: number;
   ver?: number;
 };
 
 export type AuthenticatedUser = {
-  sub: number;
+  sub: string;
   email: string;
   sid: number;
   ver: number;
@@ -39,7 +39,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const session = await this.databaseService.refreshToken.findFirst({
       where: {
         id: payload.sid,
-        userId: payload.sub,
+        userId: Number(payload.sub),
         revoked: false,
         expiresAt: {
           gt: new Date(),

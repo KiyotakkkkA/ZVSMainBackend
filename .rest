@@ -1,6 +1,7 @@
 ### Auth Routes Documentation
 # Base URL uses global prefix from main.ts: /api
 @baseUrl = http://localhost:8080/api
+@baseUrlNoApi = http://localhost:8080
 @accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsImlhdCI6MTc3MzAxMTM4NiwiZXhwIjoxNzczMDE0OTg2fQ.JKULl3SpYqNkIiyRGItLcJhMJN5FqtCQd4xwG4DJWX8
 @refreshToken = REPLACE_WITH_REFRESH_TOKEN
 @sessionId = 1
@@ -85,3 +86,8 @@ Authorization: Bearer {{accessToken}}
 # - Authorization: Bearer <accessToken>
 DELETE {{baseUrl}}/auth/sessions/{{sessionId}}
 Authorization: Bearer {{accessToken}}
+
+### Auth: Get JWKS 
+# GET {{baseUrlNoApi}}/.well-known/jwks.json
+# Description: Returns the JSON Web Key Set (JWKS) containing the public keys used to verify JWT signatures.
+GET {{baseUrlNoApi}}/.well-known/jwks.json
