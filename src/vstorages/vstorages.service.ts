@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from 'src/config/config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { CreateVstorageDto } from 'src/dto/vstorages/create-vstorage.dto';
 import { CreateVstorageTagDto } from 'src/dto/vstorages/create-vstorage-tag.dto';
@@ -15,6 +16,7 @@ import { VectorizationApiService } from './vectorization-api.service';
 export class VstoragesService {
   constructor(
     private readonly databaseService: DatabaseService,
+    private readonly configService: ConfigService,
     private readonly vectorizationApiService: VectorizationApiService,
   ) {}
 
@@ -144,17 +146,70 @@ export class VstoragesService {
       throw new NotFoundException('Vector storage not found');
     }
 
-    return this.vectorizationApiService.createEmbeddings(
-      id,
-      accessToken,
-      files.map((file, index) => ({
-        name: file.originalname,
-        source: documentSources?.[index] ?? source ?? 'upload',
-        content: file.buffer,
-        storage_file_id: '',
-      })),
-      collectionName,
-    );
+    const documents = files.map((file, index) => ({
+      name: file.originalname,
+      source: documentSources?.[index] ?? source ?? 'upload',
+      content: file.buffer,
+      storage_file_id: '',
+    }));
+
+    const maxBatchBytes =
+      this.configService.getVectorizationGrpcEmbeddingsBatchBytes();
+
+    const batches: (typeof documents)[] = [];
+    let currentBatch: typeof documents = [];
+    let currentBatchSize = 0;
+
+    for (const document of documents) {
+      const documentSize = document.content.byteLength;
+
+      if (documentSize > maxBatchBytes) {
+        throw new BadRequestException(
+          `File '${document.name}' is too large for gRPC limit. Max per file is ${maxBatchBytes} bytes`,
+        );
+      }
+
+      if (
+        currentBatch.length > 0 &&
+        currentBatchSize + documentSize > maxBatchBytes
+      ) {
+        batches.push(currentBatch);
+        currentBatch = [];
+        currentBatchSize = 0;
+      }
+
+      currentBatch.push(document);
+      currentBatchSize += documentSize;
+    }
+
+    if (currentBatch.length > 0) {
+      batches.push(currentBatch);
+    }
+
+    let lastDirectorySize = 0;
+    let totalVectorizedChunks = 0;
+
+    for (const batch of batches) {
+      const result = await this.vectorizationApiService.createEmbeddings(
+        id,
+        accessToken,
+        batch,
+        collectionName,
+      );
+
+      if (!result.success) {
+        return result;
+      }
+
+      lastDirectorySize = result.directorySize;
+      totalVectorizedChunks += result.vectorizedChunks;
+    }
+
+    return {
+      success: true,
+      directorySize: lastDirectorySize,
+      vectorizedChunks: totalVectorizedChunks,
+    };
   }
 
   async update(userId: number, id: string, body: UpdateVstorageDto) {

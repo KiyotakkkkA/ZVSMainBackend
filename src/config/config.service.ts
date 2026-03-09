@@ -43,16 +43,29 @@ export class ConfigService {
     return this.getString('DATABASE_URL');
   }
 
-  getVectorizationApiUrl(): string {
-    return this.getString('SERVICE_VECTORIZATION_API_URL');
-  }
-
-  getVectorizationApiTimeoutMs(): number {
-    return this.getNumber('SERVICE_VECTORIZATION_API_TIMEOUT_MS', 10000);
-  }
-
   getVectorizationGrpcUrl(): string {
     return this.getString('SERVICE_VECTORIZATION_GRPC_URL', '127.0.0.1:50051');
+  }
+
+  getVectorizationGrpcEmbeddingsBatchBytes(): number {
+    return this.getNumber(
+      'SERVICE_VECTORIZATION_GRPC_EMBEDDINGS_BATCH_BYTES',
+      50 * 1024 * 1024,
+    );
+  }
+
+  getVectorizationGrpcMaxSendMessageBytes(): number {
+    return this.getNumber(
+      'SERVICE_VECTORIZATION_GRPC_MAX_SEND_MESSAGE_BYTES',
+      70 * 1024 * 1024,
+    );
+  }
+
+  getVectorizationGrpcMaxReceiveMessageBytes(): number {
+    return this.getNumber(
+      'SERVICE_VECTORIZATION_GRPC_MAX_RECEIVE_MESSAGE_BYTES',
+      70 * 1024 * 1024,
+    );
   }
 
   private getString(name: string, defaultValue?: string): string {

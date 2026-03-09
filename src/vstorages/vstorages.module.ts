@@ -29,6 +29,12 @@ import { VectorizationApiService } from './vectorization-api.service';
             loader: {
               keepCase: true,
             },
+            channelOptions: {
+              'grpc.max_send_message_length':
+                configService.getVectorizationGrpcMaxSendMessageBytes(),
+              'grpc.max_receive_message_length':
+                configService.getVectorizationGrpcMaxReceiveMessageBytes(),
+            },
           },
         }),
       },

@@ -1,13 +1,15 @@
 import {
+  BadGatewayException,
   BadRequestException,
+  GatewayTimeoutException,
+  HttpException,
   Inject,
   Injectable,
   OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
-import { firstValueFrom, timeout } from 'rxjs';
-import { ConfigService } from 'src/config/config.service';
+import { firstValueFrom } from 'rxjs';
 import { VECTORIZATION_GRPC_CLIENT } from './vstorages.tokens';
 
 type CreateVstoreRequest = {
@@ -71,7 +73,6 @@ export class VectorizationApiService implements OnModuleInit {
   constructor(
     @Inject(VECTORIZATION_GRPC_CLIENT)
     private readonly grpcClient: unknown,
-    private readonly configService: ConfigService,
   ) {}
 
   onModuleInit() {
@@ -152,14 +153,41 @@ export class VectorizationApiService implements OnModuleInit {
     handler: () => import('rxjs').Observable<T>,
   ): Promise<T> {
     try {
-      return await firstValueFrom(
-        handler().pipe(
-          timeout(this.configService.getVectorizationApiTimeoutMs()),
-        ),
-      );
-    } catch {
-      throw new ServiceUnavailableException(
-        'Vectorization gRPC service is unavailable',
+      return await firstValueFrom(handler());
+    } catch (error: unknown) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      const grpcError = error as {
+        code?: number;
+        details?: string;
+        message?: string;
+      };
+
+      if (grpcError.code === 4) {
+        throw new GatewayTimeoutException(
+          grpcError.details ?? 'Vectorization gRPC request timed out',
+        );
+      }
+
+      if (grpcError.code === 8) {
+        throw new BadRequestException(
+          grpcError.details ??
+            'Embedding payload is too large for gRPC message limit',
+        );
+      }
+
+      if (grpcError.code === 14) {
+        throw new ServiceUnavailableException(
+          grpcError.details ?? 'Vectorization gRPC service is unavailable',
+        );
+      }
+
+      throw new BadGatewayException(
+        grpcError.details ??
+          grpcError.message ??
+          'Vectorization gRPC call failed',
       );
     }
   }
