@@ -127,6 +127,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
+    // TODO: Надо как то по-другому идентифицировать устройство
     if (tokenRecord.device !== ctx.deviceId) {
       await this.databaseService.refreshToken.update({
         where: { id: tokenRecord.id },
