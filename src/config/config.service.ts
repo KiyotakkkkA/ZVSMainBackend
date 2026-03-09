@@ -1,9 +1,24 @@
 import { Injectable } from '@nestjs/common';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 @Injectable()
 export class ConfigService {
-  getJwtSecret(): string {
-    return this.getString('JWT_SECRET', 'dev_jwt_secret_change_me');
+  private readonly jwtPrivateKey: string;
+  private readonly jwtPublicKey: string;
+
+  constructor() {
+    const keysDir = join(process.cwd(), 'keys');
+    this.jwtPrivateKey = readFileSync(join(keysDir, 'private.pem'), 'utf-8');
+    this.jwtPublicKey = readFileSync(join(keysDir, 'public.pem'), 'utf-8');
+  }
+
+  getJwtPrivateKey(): string {
+    return this.jwtPrivateKey;
+  }
+
+  getJwtPublicKey(): string {
+    return this.jwtPublicKey;
   }
 
   getJwtAccessExpiresInSeconds(): number {
