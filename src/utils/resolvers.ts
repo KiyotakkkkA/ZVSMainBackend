@@ -27,7 +27,7 @@ export function resolveOs(userAgent: string): string {
 export function resolveBrowser(userAgent: string): string {
   const ua = userAgent.toLowerCase();
 
-  if (ua.includes('zvs/')) {
+  if (ua.includes('zvsassistant/')) {
     return 'ZVS Assistant';
   }
 
