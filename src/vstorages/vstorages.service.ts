@@ -1,0 +1,254 @@
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { DatabaseService } from 'src/database/database.service';
+import { CreateVstorageDto } from 'src/dto/vstorages/create-vstorage.dto';
+import { CreateVstorageTagDto } from 'src/dto/vstorages/create-vstorage-tag.dto';
+import { ListVstoragesQueryDto } from 'src/dto/vstorages/list-vstorages-query.dto';
+import { UpdateVstorageDto } from 'src/dto/vstorages/update-vstorage.dto';
+import { VectorizationApiService } from './vectorization-api.service';
+
+@Injectable()
+export class VstoragesService {
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly vectorizationApiService: VectorizationApiService,
+  ) {}
+
+  async list(userId: number, query: ListVstoragesQueryDto) {
+    const name = query.name?.trim();
+    const tagIds = query.tagIds?.filter(Boolean) ?? [];
+
+    const storages = await this.databaseService.vectorStorage.findMany({
+      where: {
+        userId,
+        ...(name ? { name: { contains: name, mode: 'insensitive' } } : {}),
+        ...(tagIds.length > 0
+          ? { tags: { some: { id: { in: tagIds } } } }
+          : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        lastActiveAt: true,
+        size: true,
+        tags: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return {
+      storages: storages.map((storage) => ({
+        id: storage.id,
+        name: storage.name,
+        createdAt: storage.createdAt.toISOString(),
+        lastActiveAt: storage.lastActiveAt.toISOString(),
+        size: storage.size,
+        tags: storage.tags.map((tag: { name: string }) => tag.name),
+      })),
+    };
+  }
+
+  async create(userId: number, body: CreateVstorageDto, accessToken: string) {
+    if (!accessToken) {
+      throw new UnauthorizedException('Access token is missing');
+    }
+
+    const storageId =
+      await this.vectorizationApiService.createStorage(accessToken);
+
+    let created: {
+      id: string;
+      name: string;
+      createdAt: Date;
+      lastActiveAt: Date;
+      size: number;
+      tags: Array<{ name: string }>;
+    };
+
+    try {
+      created = await this.databaseService.vectorStorage.create({
+        data: {
+          id: storageId,
+          userId,
+          name: body.name.trim(),
+        },
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+          lastActiveAt: true,
+          size: true,
+          tags: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+    } catch {
+      await this.vectorizationApiService
+        .deleteStorage(storageId, accessToken)
+        .catch(() => undefined);
+
+      throw new InternalServerErrorException(
+        'Failed to persist vector storage metadata',
+      );
+    }
+
+    return {
+      id: created.id,
+      name: created.name,
+      createdAt: created.createdAt.toISOString(),
+      lastActiveAt: created.lastActiveAt.toISOString(),
+      size: created.size,
+      tags: created.tags.map((tag: { name: string }) => tag.name),
+    };
+  }
+
+  async update(userId: number, id: string, body: UpdateVstorageDto) {
+    const existing = await this.databaseService.vectorStorage.findFirst({
+      where: {
+        id,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Vector storage not found');
+    }
+
+    const tags = await this.databaseService.vectorStorageTag.findMany({
+      where: {
+        userId,
+        id: {
+          in: body.tagIds,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const updated = await this.databaseService.vectorStorage.update({
+      where: {
+        id,
+      },
+      data: {
+        name: body.name.trim(),
+        tags: {
+          set: tags.map((tag) => ({ id: tag.id })),
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        lastActiveAt: true,
+        size: true,
+        tags: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      createdAt: updated.createdAt.toISOString(),
+      lastActiveAt: updated.lastActiveAt.toISOString(),
+      size: updated.size,
+      tags: updated.tags.map((tag: { name: string }) => tag.name),
+    };
+  }
+
+  async delete(userId: number, id: string, accessToken: string) {
+    if (!accessToken) {
+      throw new UnauthorizedException('Access token is missing');
+    }
+
+    const existing = await this.databaseService.vectorStorage.findFirst({
+      where: {
+        id,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Vector storage not found');
+    }
+
+    await this.vectorizationApiService.deleteStorage(id, accessToken);
+
+    await this.databaseService.vectorStorage.delete({
+      where: {
+        id,
+      },
+    });
+
+    return;
+  }
+
+  async listTags(userId: number) {
+    const tags = await this.databaseService.vectorStorageTag.findMany({
+      where: {
+        userId,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return {
+      tags,
+    };
+  }
+
+  async createTag(
+    userId: number,
+    body: CreateVstorageTagDto,
+  ): Promise<{ id: string; name: string }> {
+    try {
+      const created = await this.databaseService.vectorStorageTag.create({
+        data: {
+          userId,
+          name: body.name.trim(),
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+
+      return {
+        id: created.id,
+        name: created.name,
+      };
+    } catch {
+      throw new BadRequestException('Tag with this name already exists');
+    }
+  }
+}

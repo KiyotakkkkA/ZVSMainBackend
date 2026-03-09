@@ -43,6 +43,14 @@ export class ConfigService {
     return this.getString('DATABASE_URL');
   }
 
+  getVectorizationApiUrl(): string {
+    return this.getString('SERVICE_VECTORIZATION_API_URL');
+  }
+
+  getVectorizationApiTimeoutMs(): number {
+    return this.getNumber('SERVICE_VECTORIZATION_API_TIMEOUT_MS', 10000);
+  }
+
   private getString(name: string, defaultValue?: string): string {
     const value = process.env[name] ?? defaultValue;
 

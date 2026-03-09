@@ -31,6 +31,8 @@ model User {
   role        Role    @default(USER)
 
   tokens      RefreshToken[]
+  vectorStorages VectorStorage[]
+  vectorStorageTags VectorStorageTag[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -54,4 +56,33 @@ model RefreshToken {
   updatedAt   DateTime @updatedAt
 
   @@map("refresh_tokens")
+}
+
+model VectorStorage {
+  id           String   @id @default(cuid())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  size         Int      @default(0)
+  lastActiveAt DateTime @default(now())
+  tags         VectorStorageTag[] @relation("VectorStorageToTag")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@map("vector_storages")
+}
+
+model VectorStorageTag {
+  id        String   @id @default(cuid())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  storages  VectorStorage[] @relation("VectorStorageToTag")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("vector_storage_tags")
 }
