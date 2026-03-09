@@ -35,6 +35,14 @@ type CreateEmbeddingsRequest = {
   collection_name: string;
 };
 
+type SearchEmbeddingsRequest = {
+  access_token: string;
+  vstore_uuid: string;
+  query: string;
+  top_k: number;
+  collection_name: string;
+};
+
 type VstoreOperationPayload = {
   vstore_uuid?: string;
   collection?: string;
@@ -54,6 +62,20 @@ type CreateEmbeddingsResponse = {
   error?: string;
 };
 
+type SearchResultItem = {
+  id: string;
+  document: string;
+  metadata_json: string;
+  distance: number;
+};
+
+type SearchEmbeddingsResponse = {
+  success: boolean;
+  message?: string;
+  items: SearchResultItem[];
+  error?: string;
+};
+
 type VectorizationGrpcService = {
   CreateVstore(
     data: CreateVstoreRequest,
@@ -64,6 +86,9 @@ type VectorizationGrpcService = {
   CreateEmbeddings(
     data: CreateEmbeddingsRequest,
   ): import('rxjs').Observable<CreateEmbeddingsResponse>;
+  SearchEmbeddings(
+    data: SearchEmbeddingsRequest,
+  ): import('rxjs').Observable<SearchEmbeddingsResponse>;
 };
 
 const errors = {
@@ -160,6 +185,31 @@ export class VectorizationApiService implements OnModuleInit {
       success: response.success,
       directorySize: Number(response.directory_size ?? 0),
       vectorizedChunks: response.vectorized_chunks,
+      error: response.error,
+    };
+  }
+
+  async searchEmbeddings(
+    storageId: string,
+    accessToken: string,
+    query: string,
+    topK: number,
+    collectionName?: string,
+  ): Promise<SearchEmbeddingsResponse> {
+    const response = await this.callGrpc(() =>
+      this.vectorizationService.SearchEmbeddings({
+        access_token: accessToken,
+        vstore_uuid: storageId,
+        query,
+        top_k: topK,
+        collection_name: collectionName ?? '',
+      }),
+    );
+
+    return {
+      success: response.success,
+      message: response.message,
+      items: response.items ?? [],
       error: response.error,
     };
   }

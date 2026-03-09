@@ -23,6 +23,7 @@ import { CreateEmbeddingsDto } from 'src/dto/vstorages/create-embeddings.dto';
 import { CreateVstorageDto } from 'src/dto/vstorages/create-vstorage.dto';
 import { CreateVstorageTagDto } from 'src/dto/vstorages/create-vstorage-tag.dto';
 import { ListVstoragesQueryDto } from 'src/dto/vstorages/list-vstorages-query.dto';
+import { SearchEmbeddingsDto } from 'src/dto/vstorages/search-embeddings.dto';
 import { UpdateVstorageDto } from 'src/dto/vstorages/update-vstorage.dto';
 import { VstoragesService } from './vstorages.service';
 
@@ -75,6 +76,22 @@ export class VstoragesController {
       Number(request.user.sub),
       body,
       accessToken,
+    );
+  }
+
+  @Post(':id/search')
+  async searchEmbeddings(
+    @Param('id') id: string,
+    @Body() body: SearchEmbeddingsDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const accessToken = this.requireAccessToken(request);
+
+    return this.vstoragesService.search(
+      Number(request.user.sub),
+      id,
+      accessToken,
+      body,
     );
   }
 

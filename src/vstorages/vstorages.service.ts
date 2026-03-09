@@ -9,6 +9,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { CreateVstorageDto } from 'src/dto/vstorages/create-vstorage.dto';
 import { CreateVstorageTagDto } from 'src/dto/vstorages/create-vstorage-tag.dto';
 import { ListVstoragesQueryDto } from 'src/dto/vstorages/list-vstorages-query.dto';
+import { SearchEmbeddingsDto } from 'src/dto/vstorages/search-embeddings.dto';
 import { UpdateVstorageDto } from 'src/dto/vstorages/update-vstorage.dto';
 import { VectorizationApiService } from './vectorization-api.service';
 
@@ -120,6 +121,45 @@ export class VstoragesService {
         name: tag.name,
       })),
     };
+  }
+
+  async search(
+    userId: number,
+    id: string,
+    accessToken: string,
+    body: SearchEmbeddingsDto,
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    items: Array<{
+      id: string;
+      document: string;
+      metadata_json: string;
+      distance: number;
+    }>;
+    error?: string;
+  }> {
+    const storage = await this.databaseService.vectorStorage.findFirst({
+      where: {
+        id,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!storage) {
+      throw new NotFoundException('Vector storage not found');
+    }
+
+    return this.vectorizationApiService.searchEmbeddings(
+      id,
+      accessToken,
+      body.query,
+      body.topK,
+      body.collectionName,
+    );
   }
 
   async proxyEmbeddings(
