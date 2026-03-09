@@ -1,31 +1,101 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
+  OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import type { ClientGrpc } from '@nestjs/microservices';
+import { firstValueFrom, timeout } from 'rxjs';
 import { ConfigService } from 'src/config/config.service';
+import { VECTORIZATION_GRPC_CLIENT } from './vstorages.tokens';
 
-type VectorizationPayload = {
+type CreateVstoreRequest = {
+  access_token: string;
+};
+
+type DeleteVstoreRequest = {
+  access_token: string;
+  vstore_uuid: string;
+};
+
+type EmbedDocument = {
+  name: string;
+  source: string;
+  content: Buffer;
+  storage_file_id: string;
+};
+
+type CreateEmbeddingsRequest = {
+  access_token: string;
+  vstore_uuid: string;
+  documents: EmbedDocument[];
+  collection_name: string;
+};
+
+type VstoreOperationPayload = {
   vstore_uuid?: string;
-} | null;
+  collection?: string;
+  path?: string;
+};
 
-type VectorizationResponse = {
+type VstoreOperationResponse = {
   success: boolean;
   message?: string;
-  payload?: VectorizationPayload;
+  payload?: VstoreOperationPayload;
+};
+
+type CreateEmbeddingsResponse = {
+  success: boolean;
+  directory_size: string | number;
+  vectorized_chunks: number;
+  error?: string;
+};
+
+type VectorizationGrpcService = {
+  CreateVstore(
+    data: CreateVstoreRequest,
+  ): import('rxjs').Observable<VstoreOperationResponse>;
+  DeleteVstore(
+    data: DeleteVstoreRequest,
+  ): import('rxjs').Observable<VstoreOperationResponse>;
+  CreateEmbeddings(
+    data: CreateEmbeddingsRequest,
+  ): import('rxjs').Observable<CreateEmbeddingsResponse>;
 };
 
 @Injectable()
-export class VectorizationApiService {
-  constructor(private readonly configService: ConfigService) {}
+export class VectorizationApiService implements OnModuleInit {
+  private vectorizationService!: VectorizationGrpcService;
+
+  constructor(
+    @Inject(VECTORIZATION_GRPC_CLIENT)
+    private readonly grpcClient: unknown,
+    private readonly configService: ConfigService,
+  ) {}
+
+  onModuleInit() {
+    const grpcClient = this.grpcClient as ClientGrpc;
+
+    this.vectorizationService = grpcClient.getService<VectorizationGrpcService>(
+      'VectorizationService',
+    );
+  }
 
   async createStorage(accessToken: string): Promise<string> {
-    const result = await this.request('/vstorages/create', {
-      method: 'POST',
-      accessToken,
-    });
+    const response = await this.callGrpc(() =>
+      this.vectorizationService.CreateVstore({
+        access_token: accessToken,
+      }),
+    );
 
-    const storageId = result.payload?.vstore_uuid?.trim();
+    if (!response.success) {
+      throw new BadRequestException(
+        response.message ?? 'Vectorization service failed to create storage',
+      );
+    }
+
+    const storageId = response.payload?.vstore_uuid?.trim();
     if (!storageId) {
       throw new BadRequestException(
         'Vectorization service did not return storage UUID',
@@ -36,65 +106,61 @@ export class VectorizationApiService {
   }
 
   async deleteStorage(storageId: string, accessToken: string): Promise<void> {
-    await this.request(`/vstorages/delete/${encodeURIComponent(storageId)}`, {
-      method: 'DELETE',
-      accessToken,
-    });
+    const response = await this.callGrpc(() =>
+      this.vectorizationService.DeleteVstore({
+        access_token: accessToken,
+        vstore_uuid: storageId,
+      }),
+    );
+
+    if (!response.success) {
+      throw new BadRequestException(
+        response.message ?? 'Vectorization service failed to delete storage',
+      );
+    }
   }
 
-  private async request(
-    endpoint: string,
-    options: { method: 'POST' | 'DELETE'; accessToken: string },
-  ): Promise<VectorizationResponse> {
-    const baseUrl = this.configService.getVectorizationApiUrl();
-    const timeoutMs = this.configService.getVectorizationApiTimeoutMs();
+  async createEmbeddings(
+    storageId: string,
+    accessToken: string,
+    documents: EmbedDocument[],
+    collectionName?: string,
+  ): Promise<{
+    success: boolean;
+    directorySize: number;
+    vectorizedChunks: number;
+    error?: string;
+  }> {
+    const response = await this.callGrpc(() =>
+      this.vectorizationService.CreateEmbeddings({
+        access_token: accessToken,
+        vstore_uuid: storageId,
+        documents,
+        collection_name: collectionName ?? '',
+      }),
+    );
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    return {
+      success: response.success,
+      directorySize: Number(response.directory_size ?? 0),
+      vectorizedChunks: response.vectorized_chunks,
+      error: response.error,
+    };
+  }
 
-    let response: Response;
-
+  private async callGrpc<T>(
+    handler: () => import('rxjs').Observable<T>,
+  ): Promise<T> {
     try {
-      response = await fetch(`${baseUrl}${endpoint}`, {
-        method: options.method,
-        headers: {
-          Authorization: `Bearer ${options.accessToken}`,
-          ...(options.method === 'POST'
-            ? { 'Content-Type': 'application/json' }
-            : {}),
-        },
-        signal: controller.signal,
-      });
+      return await firstValueFrom(
+        handler().pipe(
+          timeout(this.configService.getVectorizationApiTimeoutMs()),
+        ),
+      );
     } catch {
       throw new ServiceUnavailableException(
-        'Vectorization service is unavailable',
-      );
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    if (!response.ok) {
-      throw new BadRequestException(
-        `Vectorization service request failed: ${response.status} ${response.statusText}`,
+        'Vectorization gRPC service is unavailable',
       );
     }
-
-    let payload: VectorizationResponse;
-
-    try {
-      payload = (await response.json()) as VectorizationResponse;
-    } catch {
-      throw new BadRequestException(
-        'Vectorization service returned invalid JSON response',
-      );
-    }
-
-    if (!payload.success) {
-      throw new BadRequestException(
-        payload.message ?? 'Vectorization service rejected request',
-      );
-    }
-
-    return payload;
   }
 }

@@ -8,12 +8,18 @@ import {
   Put,
   Query,
   Req,
+  UnauthorizedException,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import type { Express } from 'express';
 import type { AuthenticatedRequest } from 'src/auth/auth.guard';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { CreateEmbeddingsDto } from 'src/dto/vstorages/create-embeddings.dto';
 import { CreateVstorageDto } from 'src/dto/vstorages/create-vstorage.dto';
 import { CreateVstorageTagDto } from 'src/dto/vstorages/create-vstorage-tag.dto';
 import { ListVstoragesQueryDto } from 'src/dto/vstorages/list-vstorages-query.dto';
@@ -32,6 +38,24 @@ import { VstoragesService } from './vstorages.service';
 export class VstoragesController {
   constructor(private readonly vstoragesService: VstoragesService) {}
 
+  private resolveAccessToken(request: AuthenticatedRequest): string {
+    const authorization = request.headers.authorization ?? '';
+
+    return authorization.startsWith('Bearer ')
+      ? authorization.slice('Bearer '.length).trim()
+      : '';
+  }
+
+  private requireAccessToken(request: AuthenticatedRequest): string {
+    const accessToken = this.resolveAccessToken(request);
+
+    if (!accessToken) {
+      throw new UnauthorizedException('Access token is missing');
+    }
+
+    return accessToken;
+  }
+
   @Get()
   async list(
     @Query() query: ListVstoragesQueryDto,
@@ -45,15 +69,33 @@ export class VstoragesController {
     @Body() body: CreateVstorageDto,
     @Req() request: AuthenticatedRequest,
   ) {
-    const authorization = request.headers.authorization ?? '';
-    const accessToken = authorization.startsWith('Bearer ')
-      ? authorization.slice('Bearer '.length).trim()
-      : '';
+    const accessToken = this.requireAccessToken(request);
 
     return this.vstoragesService.create(
       Number(request.user.sub),
       body,
       accessToken,
+    );
+  }
+
+  @UseInterceptors(AnyFilesInterceptor())
+  @Post(':id/embeddings')
+  async uploadEmbeddings(
+    @Param('id') id: string,
+    @Body() body: CreateEmbeddingsDto,
+    @Req() request: AuthenticatedRequest,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    const accessToken = this.requireAccessToken(request);
+
+    return this.vstoragesService.proxyEmbeddings(
+      Number(request.user.sub),
+      id,
+      accessToken,
+      files,
+      body.collectionName,
+      body.source,
+      body.documentSources,
     );
   }
 
@@ -68,10 +110,7 @@ export class VstoragesController {
 
   @Delete(':id')
   async delete(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
-    const authorization = request.headers.authorization ?? '';
-    const accessToken = authorization.startsWith('Bearer ')
-      ? authorization.slice('Bearer '.length).trim()
-      : '';
+    const accessToken = this.requireAccessToken(request);
 
     return this.vstoragesService.delete(
       Number(request.user.sub),

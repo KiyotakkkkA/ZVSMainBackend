@@ -51,6 +51,10 @@ export class ConfigService {
     return this.getNumber('SERVICE_VECTORIZATION_API_TIMEOUT_MS', 10000);
   }
 
+  getVectorizationGrpcUrl(): string {
+    return this.getString('SERVICE_VECTORIZATION_GRPC_URL', '127.0.0.1:50051');
+  }
+
   private getString(name: string, defaultValue?: string): string {
     const value = process.env[name] ?? defaultValue;
 

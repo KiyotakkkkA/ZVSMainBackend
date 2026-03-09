@@ -3,7 +3,6 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { CreateVstorageDto } from 'src/dto/vstorages/create-vstorage.dto';
@@ -61,10 +60,6 @@ export class VstoragesService {
   }
 
   async create(userId: number, body: CreateVstorageDto, accessToken: string) {
-    if (!accessToken) {
-      throw new UnauthorizedException('Access token is missing');
-    }
-
     const storageId =
       await this.vectorizationApiService.createStorage(accessToken);
 
@@ -115,6 +110,51 @@ export class VstoragesService {
       size: created.size,
       tags: created.tags.map((tag: { name: string }) => tag.name),
     };
+  }
+
+  async proxyEmbeddings(
+    userId: number,
+    id: string,
+    accessToken: string,
+    files: Express.Multer.File[],
+    collectionName?: string,
+    source?: string,
+    documentSources?: string[],
+  ): Promise<{
+    success: boolean;
+    directorySize: number;
+    vectorizedChunks: number;
+    error?: string;
+  }> {
+    if (!files.length) {
+      throw new BadRequestException('At least one file is required');
+    }
+
+    const storage = await this.databaseService.vectorStorage.findFirst({
+      where: {
+        id,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!storage) {
+      throw new NotFoundException('Vector storage not found');
+    }
+
+    return this.vectorizationApiService.createEmbeddings(
+      id,
+      accessToken,
+      files.map((file, index) => ({
+        name: file.originalname,
+        source: documentSources?.[index] ?? source ?? 'upload',
+        content: file.buffer,
+        storage_file_id: '',
+      })),
+      collectionName,
+    );
   }
 
   async update(userId: number, id: string, body: UpdateVstorageDto) {
@@ -179,10 +219,6 @@ export class VstoragesService {
   }
 
   async delete(userId: number, id: string, accessToken: string) {
-    if (!accessToken) {
-      throw new UnauthorizedException('Access token is missing');
-    }
-
     const existing = await this.databaseService.vectorStorage.findFirst({
       where: {
         id,
