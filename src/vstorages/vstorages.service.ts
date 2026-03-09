@@ -40,6 +40,7 @@ export class VstoragesService {
         size: true,
         tags: {
           select: {
+            id: true,
             name: true,
           },
         },
@@ -56,7 +57,10 @@ export class VstoragesService {
         createdAt: storage.createdAt.toISOString(),
         lastActiveAt: storage.lastActiveAt.toISOString(),
         size: storage.size,
-        tags: storage.tags.map((tag: { name: string }) => tag.name),
+        tags: storage.tags.map((tag) => ({
+          id: tag.id,
+          name: tag.name,
+        })),
       })),
     };
   }
@@ -71,7 +75,7 @@ export class VstoragesService {
       createdAt: Date;
       lastActiveAt: Date;
       size: number;
-      tags: Array<{ name: string }>;
+      tags: Array<{ id: string; name: string }>;
     };
 
     try {
@@ -89,6 +93,7 @@ export class VstoragesService {
           size: true,
           tags: {
             select: {
+              id: true,
               name: true,
             },
           },
@@ -110,7 +115,10 @@ export class VstoragesService {
       createdAt: created.createdAt.toISOString(),
       lastActiveAt: created.lastActiveAt.toISOString(),
       size: created.size,
-      tags: created.tags.map((tag: { name: string }) => tag.name),
+      tags: created.tags.map((tag: { id: string; name: string }) => ({
+        id: tag.id,
+        name: tag.name,
+      })),
     };
   }
 
@@ -165,7 +173,7 @@ export class VstoragesService {
 
       if (documentSize > maxBatchBytes) {
         throw new BadRequestException(
-          `File '${document.name}' is too large for gRPC limit. Max per file is ${maxBatchBytes} bytes`,
+          `Файл '${document.name}' слишком велик. Максимальный размер файла - ${maxBatchBytes} байт`,
         );
       }
 
@@ -257,6 +265,7 @@ export class VstoragesService {
         size: true,
         tags: {
           select: {
+            id: true,
             name: true,
           },
         },
@@ -269,7 +278,10 @@ export class VstoragesService {
       createdAt: updated.createdAt.toISOString(),
       lastActiveAt: updated.lastActiveAt.toISOString(),
       size: updated.size,
-      tags: updated.tags.map((tag: { name: string }) => tag.name),
+      tags: updated.tags.map((tag: { id: string; name: string }) => ({
+        id: tag.id,
+        name: tag.name,
+      })),
     };
   }
 

@@ -8,7 +8,7 @@ export class ListVstoragesQueryDto {
 
   @IsOptional()
   @Transform(({ value }) => {
-    if (value === undefined || value === null) {
+    if (value === undefined || value === null || value === '') {
       return undefined;
     }
 

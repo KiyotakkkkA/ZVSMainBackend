@@ -66,6 +66,21 @@ type VectorizationGrpcService = {
   ): import('rxjs').Observable<CreateEmbeddingsResponse>;
 };
 
+const errors = {
+  '4': {
+    error_class: GatewayTimeoutException,
+    default_message: 'Запрос сервису превысил время ожидания',
+  },
+  '8': {
+    error_class: BadRequestException,
+    default_message: 'Документ который вы пытаетесь отправить слишком велик.',
+  },
+  '14': {
+    error_class: ServiceUnavailableException,
+    default_message: 'Сервис недоступен',
+  },
+};
+
 @Injectable()
 export class VectorizationApiService implements OnModuleInit {
   private vectorizationService!: VectorizationGrpcService;
@@ -165,29 +180,19 @@ export class VectorizationApiService implements OnModuleInit {
         message?: string;
       };
 
-      if (grpcError.code === 4) {
-        throw new GatewayTimeoutException(
-          grpcError.details ?? 'Vectorization gRPC request timed out',
-        );
-      }
+      const errorInfo = grpcError.code
+        ? errors[grpcError.code.toString()]
+        : null;
 
-      if (grpcError.code === 8) {
-        throw new BadRequestException(
-          grpcError.details ??
-            'Embedding payload is too large for gRPC message limit',
-        );
-      }
-
-      if (grpcError.code === 14) {
-        throw new ServiceUnavailableException(
-          grpcError.details ?? 'Vectorization gRPC service is unavailable',
-        );
+      if (errorInfo) {
+        const { error_class: ErrorClass, default_message } = errorInfo;
+        throw new ErrorClass(default_message);
       }
 
       throw new BadGatewayException(
         grpcError.details ??
           grpcError.message ??
-          'Vectorization gRPC call failed',
+          'Ошибка при взаимодействии с сервисом',
       );
     }
   }
