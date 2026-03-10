@@ -1,16 +1,20 @@
 import {
   BadGatewayException,
   BadRequestException,
-  GatewayTimeoutException,
   HttpException,
   Inject,
   Injectable,
   OnModuleInit,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { VECTORIZATION_GRPC_CLIENT } from './vstorages.tokens';
+import {
+  VECTORIZATION_ERRORS,
+  VECTORIZATION_GRPC_ERRORS,
+  vectorizationError,
+  vectorizationGatewayError,
+} from './vectorization-api.errors';
 
 type CreateVstoreRequest = {
   access_token: string;
@@ -91,21 +95,6 @@ type VectorizationGrpcService = {
   ): import('rxjs').Observable<SearchEmbeddingsResponse>;
 };
 
-const errors = {
-  '4': {
-    error_class: GatewayTimeoutException,
-    default_message: 'Запрос сервису превысил время ожидания',
-  },
-  '8': {
-    error_class: BadRequestException,
-    default_message: 'Документ который вы пытаетесь отправить слишком велик.',
-  },
-  '14': {
-    error_class: ServiceUnavailableException,
-    default_message: 'Сервис недоступен',
-  },
-};
-
 @Injectable()
 export class VectorizationApiService implements OnModuleInit {
   private vectorizationService!: VectorizationGrpcService;
@@ -132,14 +121,15 @@ export class VectorizationApiService implements OnModuleInit {
 
     if (!response.success) {
       throw new BadRequestException(
-        response.message ?? 'Vectorization service failed to create storage',
+        response.message ??
+          vectorizationError(VECTORIZATION_ERRORS.CREATE_STORAGE_FAILED),
       );
     }
 
     const storageId = response.payload?.vstore_uuid?.trim();
     if (!storageId) {
       throw new BadRequestException(
-        'Vectorization service did not return storage UUID',
+        vectorizationError(VECTORIZATION_ERRORS.STORAGE_UUID_NOT_RETURNED),
       );
     }
 
@@ -156,7 +146,8 @@ export class VectorizationApiService implements OnModuleInit {
 
     if (!response.success) {
       throw new BadRequestException(
-        response.message ?? 'Vectorization service failed to delete storage',
+        response.message ??
+          vectorizationError(VECTORIZATION_ERRORS.DELETE_STORAGE_FAILED),
       );
     }
   }
@@ -231,18 +222,16 @@ export class VectorizationApiService implements OnModuleInit {
       };
 
       const errorInfo = grpcError.code
-        ? errors[grpcError.code.toString()]
+        ? VECTORIZATION_GRPC_ERRORS[grpcError.code.toString()]
         : null;
 
       if (errorInfo) {
-        const { error_class: ErrorClass, default_message } = errorInfo;
-        throw new ErrorClass(default_message);
+        const { errorClass: ErrorClass, error: mappedError } = errorInfo;
+        throw new ErrorClass(vectorizationError(mappedError));
       }
 
       throw new BadGatewayException(
-        grpcError.details ??
-          grpcError.message ??
-          'Ошибка при взаимодействии с сервисом',
+        vectorizationGatewayError(grpcError.details ?? grpcError.message),
       );
     }
   }

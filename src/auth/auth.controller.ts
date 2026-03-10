@@ -6,6 +6,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   Req,
   UseGuards,
   UsePipes,
@@ -15,14 +16,15 @@ import type { Request } from 'express';
 import { UserLoginDto } from 'src/dto/auth/user-login.dto';
 import { UserLogoutDto } from 'src/dto/auth/user-logout.dto';
 import { UserRegisterDto } from 'src/dto/auth/user-register.dto';
-import { AuthGuard } from './auth.guard';
-import type { AuthenticatedRequest } from './auth.guard';
+import { AuthGuard } from './jwt.guard';
+import type { AuthenticatedRequest } from './jwt.guard';
 import { AuthService } from './auth.service';
 import {
   resolveOs,
   resolveBrowser,
   resolveDeviceType,
 } from 'src/utils/resolvers';
+import { VerificationGuard } from './verification.guard';
 
 @Controller('auth')
 @UsePipes(
@@ -36,14 +38,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  async register(
-    @Body() userRegisterDto: UserRegisterDto,
-    @Req() request: Request,
-  ) {
-    return this.authService.register(
-      userRegisterDto,
-      this.getClientContext(request),
-    );
+  async register(@Body() userRegisterDto: UserRegisterDto) {
+    return this.authService.register(userRegisterDto);
   }
 
   @Post('login')
@@ -51,13 +47,28 @@ export class AuthController {
     return this.authService.login(userLoginDto, this.getClientContext(request));
   }
 
-  @UseGuards(AuthGuard)
+  @Get('verification/code')
+  async sendVerificationCode(
+    @Query('email') email: string,
+    @Query('token') token: string,
+  ) {
+    return this.authService.sendVerificationCode(email, token);
+  }
+
+  @Post('verification/code')
+  async verifyEmail(
+    @Body() body: { email: string; code: string; token: string },
+  ) {
+    return this.authService.verifyEmail(body.email, body.code, body.token);
+  }
+
+  @UseGuards(AuthGuard, VerificationGuard)
   @Get('me')
   async me(@Req() request: AuthenticatedRequest) {
     return this.authService.me(request.user);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, VerificationGuard)
   @Post('logout')
   async logout(
     @Body() body: UserLogoutDto,
@@ -74,13 +85,13 @@ export class AuthController {
     );
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, VerificationGuard)
   @Get('sessions')
   async sessions(@Req() request: AuthenticatedRequest) {
     return await this.authService.getSessions(request.user);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, VerificationGuard)
   @Delete('sessions/:id')
   async revokeSession(
     @Param('id', ParseIntPipe) sessionId: number,

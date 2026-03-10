@@ -12,6 +12,11 @@ import { ListVstoragesQueryDto } from 'src/dto/vstorages/list-vstorages-query.dt
 import { SearchEmbeddingsDto } from 'src/dto/vstorages/search-embeddings.dto';
 import { UpdateVstorageDto } from 'src/dto/vstorages/update-vstorage.dto';
 import { VectorizationApiService } from './vectorization-api.service';
+import {
+  VSTORAGES_ERRORS,
+  vstoragesError,
+  vstoragesFileTooLargeError,
+} from './vstorages.errors';
 
 @Injectable()
 export class VstoragesService {
@@ -106,7 +111,7 @@ export class VstoragesService {
         .catch(() => undefined);
 
       throw new InternalServerErrorException(
-        'Failed to persist vector storage metadata',
+        vstoragesError(VSTORAGES_ERRORS.PERSIST_METADATA_FAILED),
       );
     }
 
@@ -150,7 +155,9 @@ export class VstoragesService {
     });
 
     if (!storage) {
-      throw new NotFoundException('Vector storage not found');
+      throw new NotFoundException(
+        vstoragesError(VSTORAGES_ERRORS.STORAGE_NOT_FOUND),
+      );
     }
 
     return this.vectorizationApiService.searchEmbeddings(
@@ -177,7 +184,9 @@ export class VstoragesService {
     error?: string;
   }> {
     if (!files.length) {
-      throw new BadRequestException('At least one file is required');
+      throw new BadRequestException(
+        vstoragesError(VSTORAGES_ERRORS.FILE_REQUIRED),
+      );
     }
 
     const storage = await this.databaseService.vectorStorage.findFirst({
@@ -191,7 +200,9 @@ export class VstoragesService {
     });
 
     if (!storage) {
-      throw new NotFoundException('Vector storage not found');
+      throw new NotFoundException(
+        vstoragesError(VSTORAGES_ERRORS.STORAGE_NOT_FOUND),
+      );
     }
 
     const documents = files.map((file, index) => ({
@@ -213,7 +224,7 @@ export class VstoragesService {
 
       if (documentSize > maxBatchBytes) {
         throw new BadRequestException(
-          `Файл '${document.name}' слишком велик. Максимальный размер файла - ${maxBatchBytes} байт`,
+          vstoragesFileTooLargeError(document.name, maxBatchBytes),
         );
       }
 
@@ -272,7 +283,9 @@ export class VstoragesService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Vector storage not found');
+      throw new NotFoundException(
+        vstoragesError(VSTORAGES_ERRORS.STORAGE_NOT_FOUND),
+      );
     }
 
     const tags = await this.databaseService.vectorStorageTag.findMany({
@@ -337,7 +350,9 @@ export class VstoragesService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Vector storage not found');
+      throw new NotFoundException(
+        vstoragesError(VSTORAGES_ERRORS.STORAGE_NOT_FOUND),
+      );
     }
 
     await this.vectorizationApiService.deleteStorage(id, accessToken);
@@ -391,7 +406,9 @@ export class VstoragesService {
         name: created.name,
       };
     } catch {
-      throw new BadRequestException('Tag with this name already exists');
+      throw new BadRequestException(
+        vstoragesError(VSTORAGES_ERRORS.TAG_ALREADY_EXISTS),
+      );
     }
   }
 }

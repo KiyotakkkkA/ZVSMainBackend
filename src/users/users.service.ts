@@ -18,11 +18,16 @@ export class UsersService {
     });
   }
 
-  createUser(data: UserRegisterDto, passwordHash: string) {
+  createUser(
+    data: UserRegisterDto,
+    passwordHash: string,
+    verificationToken: string,
+  ) {
     return this.databaseService.user.create({
       data: {
         email: data.email,
         password: passwordHash,
+        verificationToken,
       },
     });
   }

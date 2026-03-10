@@ -7,6 +7,8 @@ import { DatabaseService } from 'src/database/database.service';
 type JwtPayload = {
   sub: string;
   email: string;
+  verified?: boolean;
+  status?: 'UNVERIFIED' | 'ACTIVE' | 'BANNED';
   sid?: number;
   ver?: number;
 };
@@ -14,6 +16,8 @@ type JwtPayload = {
 export type AuthenticatedUser = {
   sub: string;
   email: string;
+  verified: boolean;
+  status: 'UNVERIFIED' | 'ACTIVE' | 'BANNED';
   sid: number;
   ver: number;
 };
@@ -48,6 +52,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       select: {
         id: true,
         updatedAt: true,
+        user: {
+          select: {
+            status: true,
+            verifiedAt: true,
+          },
+        },
       },
     });
 
@@ -58,6 +68,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       sub: payload.sub,
       email: payload.email,
+      verified: !!session.user.verifiedAt,
+      status: session.user.status,
       sid: payload.sid,
       ver: payload.ver,
     };

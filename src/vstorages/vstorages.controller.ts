@@ -17,8 +17,9 @@ import {
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import type { Express } from 'express';
-import type { AuthenticatedRequest } from 'src/auth/auth.guard';
-import { AuthGuard } from 'src/auth/auth.guard';
+import type { AuthenticatedRequest } from 'src/auth/jwt.guard';
+import { AuthGuard } from 'src/auth/jwt.guard';
+import { VerificationGuard } from 'src/auth/verification.guard';
 import { CreateEmbeddingsDto } from 'src/dto/vstorages/create-embeddings.dto';
 import { CreateVstorageDto } from 'src/dto/vstorages/create-vstorage.dto';
 import { CreateVstorageTagDto } from 'src/dto/vstorages/create-vstorage-tag.dto';
@@ -28,7 +29,7 @@ import { UpdateVstorageDto } from 'src/dto/vstorages/update-vstorage.dto';
 import { VstoragesService } from './vstorages.service';
 
 @Controller('vstorages')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, VerificationGuard)
 @UsePipes(
   new ValidationPipe({
     whitelist: true,

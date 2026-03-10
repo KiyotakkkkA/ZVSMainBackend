@@ -6,11 +6,13 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcrypt';
 import { createHash, randomUUID } from 'crypto';
-import { AuthenticatedUser } from 'src/auth/auth.guard';
+import { AUTH_ERRORS, authError } from 'src/auth/auth.errors';
+import { AuthenticatedUser } from 'src/auth/jwt.guard';
 import { ConfigService } from 'src/config/config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { UserLoginDto } from 'src/dto/auth/user-login.dto';
 import { UserRegisterDto } from 'src/dto/auth/user-register.dto';
+import { MailService } from 'src/mail/mail.service';
 import { UsersService } from 'src/users/users.service';
 import {
   resolveBrowser,
@@ -35,43 +37,133 @@ export class AuthService {
     private readonly databaseService: DatabaseService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
   ) {}
 
-  async register(data: UserRegisterDto, ctx: AuthClientContext) {
+  async register(data: UserRegisterDto) {
     if (data.password !== data.passwordConfirm) {
-      throw new BadRequestException('Password confirmation does not match');
+      throw new BadRequestException(
+        authError(AUTH_ERRORS.PASSWORD_CONFIRM_MISMATCH),
+      );
     }
 
     const existingUser = await this.usersService.findByEmail(data.email);
     if (existingUser) {
-      throw new BadRequestException('User with this email already exists');
+      throw new BadRequestException(authError(AUTH_ERRORS.USER_ALREADY_EXISTS));
     }
 
+    const verificationToken = randomUUID();
     const passwordHash = await hash(data.password, 10);
-    const user = await this.usersService.createUser(data, passwordHash);
+    await this.usersService.createUser(data, passwordHash, verificationToken);
 
-    return this.createSession(user.id, user.email, ctx);
+    return {
+      verificationToken,
+    };
   }
 
   async login(data: UserLoginDto, ctx: AuthClientContext) {
     const user = await this.usersService.findByEmail(data.email);
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException(
+        authError(AUTH_ERRORS.INVALID_CREDENTIALS),
+      );
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedException(
+        authError(AUTH_ERRORS.ACCOUNT_NOT_ACTIVE),
+      );
     }
 
     const passwordValid = await compare(data.password, user.password);
     if (!passwordValid) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException(
+        authError(AUTH_ERRORS.INVALID_CREDENTIALS),
+      );
     }
 
     return this.createSession(user.id, user.email, ctx);
+  }
+
+  async verifyEmail(email: string, code: string, token: string) {
+    const user = await this.usersService.findByEmail(email);
+
+    if (!user) {
+      throw new BadRequestException(authError(AUTH_ERRORS.USER_NOT_FOUND));
+    }
+
+    if (user.verifiedAt) {
+      throw new BadRequestException(
+        authError(AUTH_ERRORS.USER_ALREADY_VERIFIED),
+      );
+    }
+
+    const verificationCodeHash = user.verificationCode;
+
+    if (
+      user.verificationToken !== token ||
+      typeof verificationCodeHash !== 'string'
+    ) {
+      throw new BadRequestException(
+        authError(AUTH_ERRORS.INVALID_VERIFICATION_REQUEST),
+      );
+    }
+
+    const verificationCodeValid = await compare(code, verificationCodeHash);
+    if (!verificationCodeValid) {
+      throw new BadRequestException(
+        authError(AUTH_ERRORS.INVALID_VERIFICATION_CODE),
+      );
+    }
+
+    await this.databaseService.user.update({
+      where: { id: user.id },
+      data: {
+        verifiedAt: new Date(),
+        verificationCode: null,
+        verificationToken: null,
+        status: 'ACTIVE',
+      },
+    });
+  }
+
+  async sendVerificationCode(email: string, token: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new BadRequestException(authError(AUTH_ERRORS.USER_NOT_FOUND));
+    }
+
+    if (user.verifiedAt) {
+      throw new BadRequestException(
+        authError(AUTH_ERRORS.USER_ALREADY_VERIFIED),
+      );
+    }
+
+    if (user.verificationToken !== token) {
+      throw new BadRequestException(
+        authError(AUTH_ERRORS.INVALID_VERIFICATION_TOKEN),
+      );
+    }
+
+    const verificationCode = this.createVerificationCode();
+
+    await this.databaseService.user.update({
+      where: { id: user.id },
+      data: {
+        verificationCode: await hash(verificationCode, 10),
+      },
+    });
+
+    await this.mailService.sendVerificationCode(user.email, verificationCode);
+
+    return { success: true };
   }
 
   async me(userPayload: AuthenticatedUser) {
     const user = await this.usersService.findById(Number(userPayload.sub));
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException(authError(AUTH_ERRORS.USER_NOT_FOUND));
     }
 
     return {
@@ -96,7 +188,9 @@ export class AuthService {
     });
 
     if (!session) {
-      throw new UnauthorizedException('Session not found or already revoked');
+      throw new UnauthorizedException(
+        authError(AUTH_ERRORS.SESSION_NOT_FOUND_OR_REVOKED),
+      );
     }
 
     await this.databaseService.refreshToken.update({
@@ -124,7 +218,9 @@ export class AuthService {
     });
 
     if (!tokenRecord) {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+      throw new UnauthorizedException(
+        authError(AUTH_ERRORS.INVALID_REFRESH_TOKEN),
+      );
     }
 
     // TODO: Надо как то по-другому идентифицировать устройство
@@ -135,7 +231,7 @@ export class AuthService {
       });
 
       throw new UnauthorizedException(
-        'Refresh token is not valid for this device',
+        authError(AUTH_ERRORS.REFRESH_TOKEN_DEVICE_MISMATCH),
       );
     }
 
@@ -167,13 +263,17 @@ export class AuthService {
     );
 
     if (!refreshedSession) {
-      throw new UnauthorizedException('Session not found after refresh');
+      throw new UnauthorizedException(
+        authError(AUTH_ERRORS.SESSION_NOT_FOUND_AFTER_REFRESH),
+      );
     }
 
     const accessToken = await this.jwtService.signAsync(
       {
         sub: tokenRecord.user.id,
         email: tokenRecord.user.email,
+        verified: !!tokenRecord.user.verifiedAt,
+        status: tokenRecord.user.status,
         sid: refreshedSession.id,
         ver: refreshedSession.updatedAt.getTime(),
       },
@@ -282,7 +382,7 @@ export class AuthService {
     });
 
     if (!session) {
-      throw new UnauthorizedException('Session not found');
+      throw new UnauthorizedException(authError(AUTH_ERRORS.SESSION_NOT_FOUND));
     }
 
     await this.databaseService.refreshToken.update({
@@ -327,10 +427,14 @@ export class AuthService {
       },
     });
 
+    const user = await this.usersService.findById(userId);
+
     const accessToken = await this.jwtService.signAsync(
       {
         sub: String(userId),
         email,
+        verified: !!user?.verifiedAt,
+        status: user?.status ?? 'UNVERIFIED',
         sid: tokenRecord.id,
         ver: tokenRecord.updatedAt.getTime(),
       },
@@ -347,6 +451,10 @@ export class AuthService {
 
   private hashToken(value: string): string {
     return createHash('sha256').update(value).digest('hex');
+  }
+
+  private createVerificationCode(): string {
+    return `${Math.floor(100000 + Math.random() * 900000)}`;
   }
 
   private parseSessionMeta(userAgent: string | null): {

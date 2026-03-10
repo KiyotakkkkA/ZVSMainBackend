@@ -30,6 +30,9 @@ CREATE TABLE "_VectorStorageToTag" (
     CONSTRAINT "_VectorStorageToTag_AB_pkey" PRIMARY KEY ("A","B")
 );
 
+-- AlterEnum
+ALTER TYPE "Status" ADD VALUE 'UNVERIFIED';
+
 -- CreateIndex
 CREATE INDEX "vector_storages_userId_idx" ON "vector_storages"("userId");
 

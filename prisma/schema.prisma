@@ -13,6 +13,7 @@ datasource db {
 }
 
 enum Status {
+  UNVERIFIED
   ACTIVE
   BANNED
 }
@@ -27,13 +28,17 @@ model User {
   email       String  @unique
   password    String
 
-  status      Status  @default(ACTIVE)
+  status      Status  @default(UNVERIFIED)
   role        Role    @default(USER)
+
+  verificationToken String? @unique
+  verificationCode String? @unique
 
   tokens      RefreshToken[]
   vectorStorages VectorStorage[]
   vectorStorageTags VectorStorageTag[]
 
+  verifiedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
