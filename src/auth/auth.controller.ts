@@ -65,14 +65,14 @@ export class AuthController {
     return this.authService.verifyEmail(body.email, body.code, body.token);
   }
 
-  @Roles(Role.USER)
+  @Roles(Role.VIEWONLY)
   @UseGuards(AuthGuard, VerificationGuard, RolesGuard)
   @Get('me')
   async me(@Req() request: AuthenticatedRequest) {
     return this.authService.me(request.user);
   }
 
-  @Roles(Role.USER)
+  @Roles(Role.VIEWONLY)
   @UseGuards(AuthGuard, VerificationGuard, RolesGuard)
   @Post('logout')
   async logout(
@@ -90,14 +90,14 @@ export class AuthController {
     );
   }
 
-  @Roles(Role.USER)
+  @Roles(Role.VIEWONLY)
   @UseGuards(AuthGuard, VerificationGuard, RolesGuard)
   @Get('sessions')
   async sessions(@Req() request: AuthenticatedRequest) {
     return await this.authService.getSessions(request.user);
   }
 
-  @Roles(Role.USER)
+  @Roles(Role.VIEWONLY)
   @UseGuards(AuthGuard, VerificationGuard, RolesGuard)
   @Delete('sessions/:id')
   async revokeSession(

@@ -11,9 +11,10 @@ import type { AuthenticatedRequest } from './jwt.guard';
 import { ROLES_KEY } from './roles.decorator';
 
 const ROLE_PRIORITY: Record<Role, number> = {
-  USER: 1,
-  ADMIN: 2,
-  ROOT: 3,
+  VIEWONLY: 1,
+  USER: 2,
+  ADMIN: 3,
+  ROOT: 4,
 };
 
 @Injectable()

@@ -19,6 +19,7 @@ enum Status {
 }
 
 enum Role {
+  VIEWONLY
   USER
   ADMIN
   ROOT

@@ -17,7 +17,6 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
-import type { Express } from 'express';
 import type { AuthenticatedRequest } from 'src/auth/jwt.guard';
 import { AuthGuard } from 'src/auth/jwt.guard';
 import { Roles } from 'src/auth/roles.decorator';
