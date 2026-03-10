@@ -12,6 +12,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import type { Request } from 'express';
 import { UserLoginDto } from 'src/dto/auth/user-login.dto';
 import { UserLogoutDto } from 'src/dto/auth/user-logout.dto';
@@ -25,6 +26,8 @@ import {
   resolveDeviceType,
 } from 'src/utils/resolvers';
 import { VerificationGuard } from './verification.guard';
+import { RolesGuard } from './roles.guard';
+import { Roles } from './roles.decorator';
 
 @Controller('auth')
 @UsePipes(
@@ -62,13 +65,15 @@ export class AuthController {
     return this.authService.verifyEmail(body.email, body.code, body.token);
   }
 
-  @UseGuards(AuthGuard, VerificationGuard)
+  @Roles(Role.USER)
+  @UseGuards(AuthGuard, VerificationGuard, RolesGuard)
   @Get('me')
   async me(@Req() request: AuthenticatedRequest) {
     return this.authService.me(request.user);
   }
 
-  @UseGuards(AuthGuard, VerificationGuard)
+  @Roles(Role.USER)
+  @UseGuards(AuthGuard, VerificationGuard, RolesGuard)
   @Post('logout')
   async logout(
     @Body() body: UserLogoutDto,
@@ -85,13 +90,15 @@ export class AuthController {
     );
   }
 
-  @UseGuards(AuthGuard, VerificationGuard)
+  @Roles(Role.USER)
+  @UseGuards(AuthGuard, VerificationGuard, RolesGuard)
   @Get('sessions')
   async sessions(@Req() request: AuthenticatedRequest) {
     return await this.authService.getSessions(request.user);
   }
 
-  @UseGuards(AuthGuard, VerificationGuard)
+  @Roles(Role.USER)
+  @UseGuards(AuthGuard, VerificationGuard, RolesGuard)
   @Delete('sessions/:id')
   async revokeSession(
     @Param('id', ParseIntPipe) sessionId: number,

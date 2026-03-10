@@ -1,3 +1,4 @@
+import { Role } from '@prisma/client';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -7,6 +8,7 @@ import { DatabaseService } from 'src/database/database.service';
 type JwtPayload = {
   sub: string;
   email: string;
+  role?: Role;
   verified?: boolean;
   status?: 'UNVERIFIED' | 'ACTIVE' | 'BANNED';
   sid?: number;
@@ -16,6 +18,7 @@ type JwtPayload = {
 export type AuthenticatedUser = {
   sub: string;
   email: string;
+  role: Role;
   verified: boolean;
   status: 'UNVERIFIED' | 'ACTIVE' | 'BANNED';
   sid: number;
@@ -54,6 +57,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         updatedAt: true,
         user: {
           select: {
+            role: true,
             status: true,
             verifiedAt: true,
           },
@@ -68,6 +72,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       sub: payload.sub,
       email: payload.email,
+      role: session.user.role,
       verified: !!session.user.verifiedAt,
       status: session.user.status,
       sid: payload.sid,

@@ -28,6 +28,10 @@ export const AUTH_ERRORS = {
     code: 'AUTH_ACCOUNT_NOT_ACTIVE',
     message: 'Аккаунт не активирован. Подтвердите email для доступа.',
   },
+  INSUFFICIENT_ROLE: {
+    code: 'AUTH_INSUFFICIENT_ROLE',
+    message: 'Недостаточно прав для выполнения этого действия',
+  },
   INVALID_VERIFICATION_REQUEST: {
     code: 'AUTH_INVALID_VERIFICATION_REQUEST',
     message: 'Некорректные данные запроса',

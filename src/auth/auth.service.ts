@@ -3,6 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcrypt';
 import { createHash, randomUUID } from 'crypto';
@@ -272,6 +273,7 @@ export class AuthService {
       {
         sub: tokenRecord.user.id,
         email: tokenRecord.user.email,
+        role: tokenRecord.user.role,
         verified: !!tokenRecord.user.verifiedAt,
         status: tokenRecord.user.status,
         sid: refreshedSession.id,
@@ -433,6 +435,7 @@ export class AuthService {
       {
         sub: String(userId),
         email,
+        role: user?.role ?? Role.USER,
         verified: !!user?.verifiedAt,
         status: user?.status ?? 'UNVERIFIED',
         sid: tokenRecord.id,

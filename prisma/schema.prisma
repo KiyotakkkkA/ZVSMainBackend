@@ -21,6 +21,7 @@ enum Status {
 enum Role {
   USER
   ADMIN
+  ROOT
 }
 
 model User {

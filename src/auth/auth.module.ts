@@ -11,6 +11,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwksController } from './jwks.controller';
+import { RolesGuard } from './roles.guard';
 import { VerificationGuard } from './verification.guard';
 
 @Module({
@@ -37,8 +38,14 @@ import { VerificationGuard } from './verification.guard';
     DatabaseModule,
     MailModule,
   ],
-  providers: [AuthService, AuthGuard, VerificationGuard, JwtStrategy],
+  providers: [
+    AuthService,
+    AuthGuard,
+    VerificationGuard,
+    RolesGuard,
+    JwtStrategy,
+  ],
   controllers: [AuthController, JwksController],
-  exports: [AuthService, AuthGuard, VerificationGuard],
+  exports: [AuthService, AuthGuard, VerificationGuard, RolesGuard],
 })
 export class AuthModule {}

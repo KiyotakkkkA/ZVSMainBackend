@@ -15,10 +15,13 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import type { Express } from 'express';
 import type { AuthenticatedRequest } from 'src/auth/jwt.guard';
 import { AuthGuard } from 'src/auth/jwt.guard';
+import { Roles } from 'src/auth/roles.decorator';
+import { RolesGuard } from 'src/auth/roles.guard';
 import { VerificationGuard } from 'src/auth/verification.guard';
 import { CreateEmbeddingsDto } from 'src/dto/vstorages/create-embeddings.dto';
 import { CreateVstorageDto } from 'src/dto/vstorages/create-vstorage.dto';
@@ -29,7 +32,8 @@ import { UpdateVstorageDto } from 'src/dto/vstorages/update-vstorage.dto';
 import { VstoragesService } from './vstorages.service';
 
 @Controller('vstorages')
-@UseGuards(AuthGuard, VerificationGuard)
+@Roles(Role.USER)
+@UseGuards(AuthGuard, VerificationGuard, RolesGuard)
 @UsePipes(
   new ValidationPipe({
     whitelist: true,
