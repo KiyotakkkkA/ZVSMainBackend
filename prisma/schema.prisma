@@ -31,7 +31,7 @@ model User {
   password    String
 
   status      Status  @default(UNVERIFIED)
-  role        Role    @default(USER)
+  role        Role    @default(VIEWONLY)
 
   verificationToken String? @unique
   verificationCode String? @unique
